@@ -5,6 +5,9 @@ interface EnvVars {
   PORT: number;
   NATS_SERVERS: string[];
   STRIPE_SECRET: string;
+  SUCCESS_URL: string;
+  CANCEL_URL: string;
+  ENDPOINT_SECRET: string;
 }
 
 const envSchema = joi
@@ -28,5 +31,8 @@ const envVars: EnvVars = value;
 export const envs = {
   port: envVars.PORT,
   stripeSecret: envVars.STRIPE_SECRET,
+  successUrl: envVars.SUCCESS_URL,
+  cancelUrl: envVars.CANCEL_URL,
+  endpointSecret: envVars.ENDPOINT_SECRET,
   //   natsServers: envVars.NATS_SERVERS,
 } as const;

@@ -14,13 +14,13 @@ const envSchema = joi
   .object({
     PORT: joi.number().required(),
     STRIPE_SECRET: joi.string().required(),
-    // NATS_SERVERS: joi.array().items(joi.string()).required(),
+    NATS_SERVERS: joi.array().items(joi.string()).required(),
   })
   .unknown(true);
 
 const { error, value } = envSchema.validate({
   ...process.env,
-  //   NATS_SERVERS: process.env.NATS_SERVERS?.split(',').map((s) => s.trim()),
+  NATS_SERVERS: process.env.NATS_SERVERS?.split(',').map((s) => s.trim()),
 });
 if (error) {
   throw new Error(`Config validation error: ${error.message}`);
@@ -34,5 +34,5 @@ export const envs = {
   successUrl: envVars.SUCCESS_URL,
   cancelUrl: envVars.CANCEL_URL,
   endpointSecret: envVars.ENDPOINT_SECRET,
-  //   natsServers: envVars.NATS_SERVERS,
-} as const;
+  natsServers: envVars.NATS_SERVERS,
+};

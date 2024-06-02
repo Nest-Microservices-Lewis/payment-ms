@@ -1,12 +1,16 @@
-import { envs } from '@/config';
+import { envs, NATS_SERVICE } from '@/config';
 import { PaymentSessionDto } from './dto';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
+import { ClientProxy } from '@nestjs/microservices';
 
 @Injectable()
 export class PaymentsService {
   private readonly stripe = new Stripe(envs.stripeSecret);
+  private readonly logger = new Logger(PaymentsService.name);
+
+  constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   async createPaymentSession({ currency, items, orderId }: PaymentSessionDto) {
     const lineItems = items.map((item) => {
@@ -21,7 +25,7 @@ export class PaymentsService {
         quantity: item.quantity,
       };
     });
-    return this.stripe.checkout.sessions.create({
+    const session = await this.stripe.checkout.sessions.create({
       payment_intent_data: {
         metadata: {
           orderId,
@@ -32,6 +36,12 @@ export class PaymentsService {
       cancel_url: envs.cancelUrl,
       line_items: lineItems,
     });
+
+    return {
+      cancelUrl: session.cancel_url,
+      successUrl: session.success_url,
+      url: session.url,
+    };
   }
 
   async stripeWebhook(req: Request, res: Response) {
@@ -45,6 +55,7 @@ export class PaymentsService {
         endpointSecret,
       );
     } catch (error) {
+      this.logger.error(error);
       res.status(400).send(`Webhook Error: ${error.message}`);
       return;
     }
@@ -53,12 +64,18 @@ export class PaymentsService {
       case 'charge.succeeded':
         const chargeSucceded = event.data.object;
         const orderId = chargeSucceded.metadata.orderId;
-        console.log({ orderId, sig });
+        const payload = {
+          orderId,
+          stripePaymentId: chargeSucceded.id,
+          receiptUrl: chargeSucceded.receipt_url,
+        };
+
+        this.client.emit('payment.succeeded', payload);
         break;
       default:
-        console.log(`Unhandled event type ${event.type}`);
+        this.logger.log(`Unhandled event type ${event.type}`);
     }
 
-    return res.sendStatus(200).json({ sig });
+    return { sig };
   }
 }
